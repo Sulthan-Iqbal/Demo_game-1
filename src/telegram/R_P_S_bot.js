@@ -3,7 +3,7 @@ import { Telegraf } from "telegraf";
 import { message } from "telegraf/filters";
 import { concat, ethers } from "ethers";
 import admin from "firebase-admin";
-import serviceAccount from "../serviceAccont.json" assert { type: "json" };
+import serviceAccount from "../assets/serviceAccont.json" assert { type: "json" };
 import { createConnection } from 'mysql';
 import Web3 from "web3";
 import * as abis from "./poolabi.json" assert { type: "json" };
