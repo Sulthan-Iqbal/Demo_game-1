@@ -216,6 +216,7 @@ function listenToMessages(bot) {
           const roomName = await generateRoomCode();
           const password = await generatePasscode();
           await createRoom(roomName, callbackQuery.from.id, true, password);
+          console.log("Call Create room here");
           // const userId = callbackQuery.from.id;
           // const existingWallet = await getWalletDetails(userId);
           // console.log(existingWallet);
@@ -251,6 +252,7 @@ function listenToMessages(bot) {
         } else if (callbackQuery.update.callback_query.data.toLowerCase().includes('/createpublic')) {
           const roomName = await generateRoomCode();
           await createRoom(roomName, callbackQuery.from.id);
+          console.log("Call Create room here");
           // const userId = callbackQuery.from.id;
           // const existingWallet = await getWalletDetails(userId);
           // const rawTransaction = {
@@ -309,6 +311,7 @@ function listenToMessages(bot) {
                         if (rooms.length) {
                           let roomName = ctx.update.message.text.split(':')[1].replace(' ', '');
                           if (rooms[0].user_count < 2) {
+                            console.log("Call Join room here");
                             // const userId = ctx.from.id;
                             // const existingWallet = await getWalletDetails(userId);
                             // const rawTransaction = {
@@ -388,6 +391,7 @@ function listenToMessages(bot) {
                         if (rooms.length) {
                           let roomName = ctx.update.message.text.split(':')[1].replace(' ', '');
                           if (rooms[0].user_count < 2) {
+                            console.log("Call Join room here");
     //                         const userId = ctx.from.id;
     //                         const existingWallet = await getWalletDetails(userId);
     //                         const poolAmountWei = web3.utils.toWei(`0.0001`, 'ether');
@@ -808,6 +812,8 @@ async function declareWinner(winner, player1_id, player2_id, ctx, player1_select
   try {
     let winnerquery = '';
     if (winner) {
+      
+      console.log("Call Winner here");
       if (winner == 'player1') {
         winnerquery = `update room_details set winner_user= ${player1_id}, status = 0 where room_id = ${roomId}`;
         ctx.telegram.sendMessage(player1_id, `You won the match\nYour selection: ${player1_selection}\nOpponent selection: ${player2_selection}`);
@@ -818,6 +824,8 @@ async function declareWinner(winner, player1_id, player2_id, ctx, player1_select
         ctx.telegram.sendMessage(player2_id, `You won the match\nYour selection: ${player2_selection}\nOpponent selection: ${player1_selection}`);
       }
     } else {
+      
+      console.log("Call draw here");
       winnerquery = `update room_details set status = 0 where room_id = ${roomId}`;
       ctx.telegram.sendMessage(player1_id, `Match drawn both selected ${player1_selection}`);
       ctx.telegram.sendMessage(player2_id, `Match drawn both selected ${player1_selection}`);
