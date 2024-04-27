@@ -16,8 +16,10 @@ var config = {
   database: 'R_P_S'
 };
 
+
 const blastEndpoint = "https://eth-sepolia.g.alchemy.com/v2/hbT0R7l5bcMZmoOBbNdXuS_5ZagTyFBy";
 const provider = new JsonRpcProvider(blastEndpoint);
+
 
 let contract;
 let web3;
@@ -52,7 +54,7 @@ export function launchBot(token) {
   const bot = new Telegraf(token);
 
   // Assign bot listeners
-  initializeWeb3();
+  //initializeWeb3();
   listenToCommands(bot);
   listenToMessages(bot);
   listenToQueries(bot);
@@ -203,6 +205,7 @@ function listenToMessages(bot) {
     bot.hears("/create", async (ctx) => {
       ctx.reply("Please Enter the pool amount in below format\nAmount: <amount>");
 
+
     });
 
 
@@ -216,6 +219,7 @@ function listenToMessages(bot) {
           const roomName = await generateRoomCode();
           const password = await generatePasscode();
           await createRoom(roomName, callbackQuery.from.id, true, password);
+
           const userId = callbackQuery.from.id;
           const existingWallet = await getWalletDetails(userId);
           console.log(existingWallet);
@@ -237,6 +241,7 @@ function listenToMessages(bot) {
             signedTransaction.rawTransaction
           );
           console.log(receipt);
+
           await sqlConnection.query(`SELECT * FROM room_details where room_name = "${roomName}"`, async function (err, recordset) {
             if (err) console.log(err);
             else {
@@ -251,6 +256,7 @@ function listenToMessages(bot) {
         } else if (callbackQuery.update.callback_query.data.toLowerCase().includes('/createpublic')) {
           const roomName = await generateRoomCode();
           await createRoom(roomName, callbackQuery.from.id);
+
           const userId = callbackQuery.from.id;
           const existingWallet = await getWalletDetails(userId);
           const rawTransaction = {
@@ -271,6 +277,7 @@ function listenToMessages(bot) {
             signedTransaction.rawTransaction
           );
           console.log(receipt);
+
           await sqlConnection.query(`SELECT * FROM room_details where room_name = "${roomName}"`, async function (err, recordset) {
             if (err) console.log(err);
             else {
@@ -289,6 +296,7 @@ function listenToMessages(bot) {
         console.log(err);
       }
     });
+
 
 
     // Listen to messages with the type 'sticker' and reply whenever you receive them
@@ -310,6 +318,7 @@ function listenToMessages(bot) {
                       else {
                         if (rooms.length) {
                           let roomName = ctx.update.message.text.split(':')[1].replace(' ', '');
+
                           console.log(typeof (roomName));
                           if (rooms[0].user_count < 2) {
                             // const userId = ctx.from.id;
@@ -342,6 +351,7 @@ function listenToMessages(bot) {
                             await sqlConnection.query(query, async function (error, data) {
                               if (error)
                                 console.log("it ran here 2")
+
                               else {
                                 await ctx.reply("Your opponent have joined the game\nYou have 10 Minutes to select option");
                                 await returnGameOptions(ctx, recordset[0].room_id, ctx.from.id);
@@ -350,7 +360,11 @@ function listenToMessages(bot) {
                             var getQuery = `select * from room_summary where room_id = ${recordset[0].room_id}`;
                             await sqlConnection.query(getQuery, async function (error, data) {
                               if (error)
+
                                 console.log("it ran here 3")
+
+                                console.log("Error", err);
+
                               else {
                                 await ctx.telegram.sendMessage(data[0].player1_id, `Your opponent have joined the game\nYou have 10 Minutes to select option`);
                                 await handleExpiry(ctx, recordset[0].room_id);
@@ -385,6 +399,7 @@ function listenToMessages(bot) {
                       else {
                         if (rooms.length) {
                           let roomName = ctx.update.message.text.split(':')[1].replace(' ', '');
+
                           console.log(roomName);
                           if (rooms[0].user_count < 2) {
                             const userId = ctx.from.id;
@@ -408,23 +423,28 @@ function listenToMessages(bot) {
                             );
                             console.log(receipt);
                             var query = `update room_summary set player2_id= ${ctx.message.chat.id}, user_count= 2, player2_amount= ${recordset[0].player1_amount} where room_id = ${recordset[0].room_id}`;
+
                             await sqlConnection.query(query, async function (error, data) {
                               if (error)
                                 throw error;
                               else {
                                 ctx.reply("Your opponent have joined the game\nYou have 10 Minutes to select option");
+
                                 await returnGameOptions(ctx, recordset[0].room_id, ctx.from.id);
                               }
                             });
                             var getQuery = `select * from room_summary where room_id = ${recordset[0].room_id}`;
+
                             await sqlConnection.query(getQuery, async function (error, data) {
                               if (error)
                                 throw error;
                               else {
                                 console.log(data[0].player1_id, data[0]);
                                 await ctx.telegram.sendMessage(data[0].player1_id, `Your opponent have joined the game\nYou have 10 Minutes to select option`);
+
                                 await handleExpiry(ctx, recordset[0].room_id);
                                 await returnGameOptions(ctx, recordset[0].room_id, data[0].player1_id);
+
                               }
                             });
                           } else {
@@ -432,7 +452,9 @@ function listenToMessages(bot) {
                           }
                         } else {
                           ctx.reply('Please Wait till second user join');
+
                           createSummary(recordset[0].room_id, ctx.message.chat.id);
+
                         }
                       }
                     });
@@ -595,12 +617,14 @@ async function generatePasscode() {
 async function createRoom(roomName, createdUser, isPrivate = false, password = '') {
   try {
     var query = isPrivate ? `INSERT INTO room_details 
+
   (room_name, created_user, room_type, password ) 
   VALUES ("${roomName}", "${createdUser}", 0, "${password}")` :
       `INSERT INTO room_details 
   (room_name, created_user, room_type ) 
   VALUES ("${roomName}", "${createdUser}", 1)
   `;
+
     sqlConnection.query(query, function (error, data) {
       if (error)
         throw error;
@@ -717,7 +741,9 @@ async function handleWin(player1_selection, player2_selection, callbackQuery, ro
         }
       }
     }
+
     await declareWinner(winner, room_summary.player1_id, room_summary.player2_id, ctx, room_summary.player1_selection, room_summary.player2_selection);
+
     const query = `update room_summary set player1_selection= "${player1_selection}", player2_selection= "${player2_selection}" where room_id = ${roomId}`;
     await sqlConnection.query(query, async function (error, data) {
       if (error)
@@ -734,20 +760,32 @@ async function handleExpiry(ctx, roomId) {
   try {
     setTimeout(async () => {
       let winner = '';
+
       var query = `select * from room_summary where room_id = ${roomId}`;
+
       sqlConnection.query(query, async function (error, data) {
         if (error)
           throw error;
         else {
-          if (data[0].player1_selection || data[0].player2_selection) {
-            if (data[0].player1_selection) {
-              winner = 'player1';
-            } else {
-              winner = 'player2';
-            }
+
+          if(data[0].status) {
+            var query1 = `select * from room_summary where room_id = ${roomId}`;
+            sqlConnection.query(query1, async function (error, data) {
+              if (error)
+                throw error;
+              else {
+                if (data[0].player1_selection || data[0].player2_selection) {
+                  if (data[0].player1_selection) {
+                    winner = 'player1';
+                  } else {
+                    winner = 'player2';
+                  }
+                }
+              }
+              await declareWinner(winner, data[0].player1_id, data[0].player2_id, ctx, data[0].player1_selection, data[0].player2_selection, roomId);
+            });
           }
         }
-        await declareWinner(winner, data[0].player1_id, data[0].player2_id, ctx, data[0].player1_selection, data[0].player2_selection);
       });
     }, 600000);
   } catch (err) {
@@ -755,10 +793,14 @@ async function handleExpiry(ctx, roomId) {
   }
 }
 
-async function declareWinner(winner, player1_id, player2_id, ctx, player1_selection = '', player2_selection = '') {
+
+async function declareWinner(winner, player1_id, player2_id, ctx, player1_selection = '', player2_selection = '', roomId) {
   try {
     let winnerquery = '';
     if (winner) {
+      
+      console.log("Call Winner here");
+
       if (winner == 'player1') {
         winnerquery = `update room_details set winner_user= ${player1_id}, status = 0 where room_id = ${roomId}`;
         ctx.telegram.sendMessage(player1_id, `You won the match\nYour selection: ${player1_selection}\nOpponent selection: ${player2_selection}`);
@@ -769,6 +811,8 @@ async function declareWinner(winner, player1_id, player2_id, ctx, player1_select
         ctx.telegram.sendMessage(player2_id, `You won the match\nYour selection: ${player2_selection}\nOpponent selection: ${player1_selection}`);
       }
     } else {
+      console.log("Call draw here");
+
       winnerquery = `update room_details set status = 0 where room_id = ${roomId}`;
       ctx.telegram.sendMessage(player1_id, `Match drawn both selected ${player1_selection}`);
       ctx.telegram.sendMessage(player2_id, `Match drawn both selected ${player1_selection}`);
@@ -779,6 +823,37 @@ async function declareWinner(winner, player1_id, player2_id, ctx, player1_select
       else
         console.log("updated");
     });
+
+
+    var getroomQuery = `select * from room_details where room_id = ${roomId}`;
+    await sqlConnection.query(getroomQuery, async function (error, data) {
+      if (error)
+        throw error;
+      else {
+        if (winner) {
+          // let winnerid = (winner === 'player1' ? player1_id : player2_id);
+          // const userId = winnerid;
+          // const existingWallet = await getWalletDetails(userId);
+          // const rawTransaction = {
+          //   gasPrice: web3.utils.toWei("1", "gwei"),
+          //   gas: 210000,
+          //   data: contract.methods.createRoom(data[0].room_name, winnerid).encodeABI(),
+          //   nonce: await web3.eth.getTransactionCount(existingWallet.address),
+          // };
+
+          // const signedTransaction = await web3.eth.accounts.signTransaction(
+          //   rawTransaction,
+          //   existingWallet.privateKey
+          // );
+
+          // const receipt = await web3.eth.sendSignedTransaction(
+          //   signedTransaction.rawTransaction
+          // );
+          // console.log(receipt);
+        }
+      }
+    });
+
   } catch (err) {
     console.log(err);
   }
@@ -855,3 +930,4 @@ async function initializeWeb3() {
     console.error("Error connecting to MetaMask:", error);
   }
 };
+
