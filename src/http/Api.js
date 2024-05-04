@@ -1,7 +1,7 @@
 import cors from "cors";
 import express from "express";
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5500;
 export const MESSAGE_PATH = "/message";
 
 export function launchApi() {

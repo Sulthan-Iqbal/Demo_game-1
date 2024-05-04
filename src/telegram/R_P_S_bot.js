@@ -6,6 +6,7 @@ import admin from "firebase-admin";
 import serviceAccount from "../assets/serviceAccont.json" assert { type: "json" };
 import { createConnection } from 'mysql';
 import Web3 from "web3";
+import EthereumTx from 'ethereumjs-tx';
 import * as abis from "./poolabi.json" assert { type: "json" };
 
 // config for your database
@@ -16,8 +17,6 @@ var config = {
   database: 'R_P_S'
 };
 
-// const blastEndpoint = "https://eth-sepolia.g.alchemy.com/v2/hbT0R7l5bcMZmoOBbNdXuS_5ZagTyFBy";
-// const provider = new JsonRpcProvider(blastEndpoint);
 
 let contract;
 let web3;
@@ -52,7 +51,7 @@ export function launchBot(token) {
   const bot = new Telegraf(token);
 
   // Assign bot listeners
-  //initializeWeb3();
+  initializeWeb3();
   listenToCommands(bot);
   listenToMessages(bot);
   listenToQueries(bot);
@@ -215,29 +214,30 @@ function listenToMessages(bot) {
         } else if (callbackQuery.update.callback_query.data.toLowerCase().includes('/createprivate')) {
           const roomName = await generateRoomCode();
           const password = await generatePasscode();
+          callbackQuery.reply("Please wait......");
           await createRoom(roomName, callbackQuery.from.id, true, password);
-          console.log("Call Create room here");
-          // const userId = callbackQuery.from.id;
-          // const existingWallet = await getWalletDetails(userId);
-          // console.log(existingWallet);
-          // const rawTransaction = {
-          //   from: existingWallet.address,
-          //   value: web3.utils.toWei(`${callbackQuery.update.callback_query.data.split('-')[1].replace(' ', '')}`, 'ether'),
-          //   gasPrice: web3.utils.toWei("1", "gwei"),
-          //   gas: 300000,
-          //   data: contract.methods.createRoom(roomName).encodeABI(),
-          //   nonce: await web3.eth.getTransactionCount(existingWallet.address),
-          // };
-          // console.log(existingWallet.privateKey);
-          // const signedTransaction = await web3.eth.accounts.signTransaction(
-          //   rawTransaction,
-          //   existingWallet.privateKey
-          // );
+          const userId = callbackQuery.from.id;
+          const existingWallet = await getWalletDetails(userId);
+          console.log(existingWallet);
+          const nonce = await web3.eth.getTransactionCount(existingWallet.address);
+          const value = web3.utils.toWei(`${callbackQuery.update.callback_query.data.split('-')[1].replace(' ', '')}`, 'ether');
 
-          // const receipt = await web3.eth.sendSignedTransaction(
-          //   signedTransaction.rawTransaction
-          // );
-          // console.log(receipt);
+          const txObject = {
+            from: existingWallet.address,
+            to: contractAddress,
+            value: value,
+            gas: web3.utils.toHex(300000),
+            gasPrice: web3.utils.toWei("5", "gwei"),
+            nonce: web3.utils.toHex(nonce),
+            data: contract.methods.createRoom(roomName).encodeABI(),
+          };
+
+
+          const signedTx = await web3.eth.accounts.signTransaction(txObject, existingWallet.privateKey);
+          const sentTx = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+
+          callbackQuery.reply(`Transaction sent: ${sentTx.transactionHash}`);
+
           await sqlConnection.query(`SELECT * FROM room_details where room_name = "${roomName}"`, async function (err, recordset) {
             if (err) console.log(err);
             else {
@@ -252,27 +252,28 @@ function listenToMessages(bot) {
         } else if (callbackQuery.update.callback_query.data.toLowerCase().includes('/createpublic')) {
           const roomName = await generateRoomCode();
           await createRoom(roomName, callbackQuery.from.id);
-          console.log("Call Create room here");
-          // const userId = callbackQuery.from.id;
-          // const existingWallet = await getWalletDetails(userId);
-          // const rawTransaction = {
-          //   from: existingWallet.address,
-          //   value: web3.utils.toWei(`${callbackQuery.update.callback_query.data.split('-')[1].replace(' ', '')}`, 'ether'),
-          //   gasPrice: web3.utils.toWei("1", "gwei"),
-          //   gas: 300000,
-          //   data: contract.methods.createRoom(roomName).encodeABI(),
-          //   nonce: await web3.eth.getTransactionCount(existingWallet.address),
-          // };
+          callbackQuery.reply("Please wait......");
+          const userId = callbackQuery.from.id;
+          const existingWallet = await getWalletDetails(userId);
+          const nonce = await web3.eth.getTransactionCount(existingWallet.address);
+          const value = web3.utils.toWei(`${callbackQuery.update.callback_query.data.split('-')[1].replace(' ', '')}`, 'ether');
+          console.log(value);
 
-          // const signedTransaction = await web3.eth.accounts.signTransaction(
-          //   rawTransaction,
-          //   existingWallet.privateKey
-          // );
+          const txObject = {
+            from: existingWallet.address,
+            to: contractAddress,
+            value: value,
+            gas: web3.utils.toHex(300000),
+            gasPrice: web3.utils.toWei("5", "gwei"),
+            nonce: web3.utils.toHex(nonce),
+            data: contract.methods.createRoom(roomName).encodeABI(),
+          };
 
-          // const receipt = await web3.eth.sendSignedTransaction(
-          //   signedTransaction.rawTransaction
-          // );
-          // console.log(receipt);
+
+          const signedTx = await web3.eth.accounts.signTransaction(txObject, existingWallet.privateKey);
+          const sentTx = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+
+          callbackQuery.reply(`Transaction sent: ${sentTx.transactionHash}`);
           await sqlConnection.query(`SELECT * FROM room_details where room_name = "${roomName}"`, async function (err, recordset) {
             if (err) console.log(err);
             else {
@@ -283,7 +284,7 @@ function listenToMessages(bot) {
               }
             }
           });
-          callbackQuery.reply(`Your room Name: ${roomName}\nPlease Share the room Details and wait till second user join\nTo nview room name use /view command`);
+          callbackQuery.reply(`Your room Name: ${roomName}\nPlease Share the room Details and wait till second user join\nTo view room name use /view command`);
         } else if (callbackQuery.update.callback_query.data.toLowerCase().includes('rock') || callbackQuery.update.callback_query.data.toLowerCase().includes('paper') || callbackQuery.update.callback_query.data.toLowerCase().includes('scissor')) {
           handleGame(callbackQuery, callbackQuery.update.callback_query.data.split(' ')[1], callbackQuery.update.callback_query.data.split(' ')[0]);
         }
@@ -311,38 +312,28 @@ function listenToMessages(bot) {
                         if (rooms.length) {
                           let roomName = ctx.update.message.text.split(':')[1].replace(' ', '');
                           if (rooms[0].user_count < 2) {
-                            console.log("Call Join room here");
-                            // const userId = ctx.from.id;
-                            // const existingWallet = await getWalletDetails(userId);
-                            // const rawTransaction = {
-                            //   from: existingWallet.address,
-                            //   value: web3.utils.toWei(`${rooms[0].player1_amount}`, 'ether'),
-                            //   gasPrice: web3.utils.toWei("1", "gwei"),
-                            //   gas: 210000,
-                            //   data: contract.methods.createRoom(roomName).encodeABI(),
-                            //   nonce: await web3.eth.getTransactionCount(existingWallet.address),
-                            // };
+                            ctx.reply("please Wait...");
+                            const userId = ctx.from.id;
+                            const existingWallet = await getWalletDetails(userId);
+                            const nonce = await web3.eth.getTransactionCount(existingWallet.address);
+                            const value = web3.utils.toWei(`${rooms[0].player1_amount}`, 'ether');
+                            console.log(value);
 
-                            // const signedTransaction = await web3.eth.accounts.signTransaction(
-                            //   rawTransaction,
-                            //   existingWallet.privateKey
-                            // );
+                            const txObject = {
+                              from: existingWallet.address,
+                              to: contractAddress,
+                              value: value,
+                              gas: web3.utils.toHex(300000),
+                              gasPrice: web3.utils.toWei("5", "gwei"),
+                              nonce: web3.utils.toHex(nonce),
+                              data: contract.methods.joinRoom(roomName).encodeABI(),
+                            };
 
-                            // const receipt = await web3.eth.sendSignedTransaction(
-                            //   signedTransaction.rawTransaction
-                            // );
-                            // console.log(receipt);
-                            // contract.methods.getRoomInfo(roomId).call()
-                            // .then(result => {
-                            //     console.log('Room Owner:', result[0]);
-                            //     console.log('Opponent:', result[1]);
-                            //     console.log('Pool Amount:', result[2]);
-                            //     console.log('Is Room Active:', result[3]);
-                            //     console.log('Winner:', result[4]);
-                            // })
-                            // .catch(error => {
-                            //     console.error('Error:', error);
-                            // });
+
+                            const signedTx = await web3.eth.accounts.signTransaction(txObject, existingWallet.privateKey);
+                            const sentTx = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+
+                            ctx.reply(`Transaction sent: ${sentTx.transactionHash}`);
                             var query = `update room_summary set player2_id= ${ctx.message.chat.id}, user_count= 2, player2_amount= ${recordset[0].player1_amount} where room_id = ${recordset[0].room_id}`;
                             await sqlConnection.query(query, async function (error, data) {
                               if (error)
@@ -391,64 +382,28 @@ function listenToMessages(bot) {
                         if (rooms.length) {
                           let roomName = ctx.update.message.text.split(':')[1].replace(' ', '');
                           if (rooms[0].user_count < 2) {
-                            console.log("Call Join room here");
-    //                         const userId = ctx.from.id;
-    //                         const existingWallet = await getWalletDetails(userId);
-    //                         const poolAmountWei = web3.utils.toWei(`0.0001`, 'ether');
-    //                         web3.eth.getTransactionCount(existingWallet.address, 'pending')
-    // .then(nonce => {
-    //     const tx = {
-    //         nonce: web3.utils.toHex(nonce),
-    //         gasPrice: web3.utils.toHex(web3.utils.toWei('1', 'gwei')),
-    //         gasLimit: web3.utils.toHex(300000), // adjust gas limit as needed
-    //         to: contractAddress,
-    //         value: web3.utils.toHex(poolAmountWei),
-    //         data: contract.methods.joinRoom(roomName).encodeABI(),
-    //         chainId: 11155111 // replace with the appropriate chainId (e.g., 1 for mainnet, 3 for Ropsten)
-    //     };
+                            ctx.reply("please Wait...");
+                            const userId = ctx.from.id;
+                            const existingWallet = await getWalletDetails(userId);
+                            const nonce = await web3.eth.getTransactionCount(existingWallet.address);
+                            const value = web3.utils.toWei(`${rooms[0].player1_amount}`, 'ether');
+                            console.log(value);
 
-    //     // Sign the transaction
-    //     const signedTx = web3.eth.accounts.signTransaction(tx, existingWallet.privateKey);
+                            const txObject = {
+                              from: existingWallet.address,
+                              to: contractAddress,
+                              value: value,
+                              gas: web3.utils.toHex(300000),
+                              gasPrice: web3.utils.toWei("5", "gwei"),
+                              nonce: web3.utils.toHex(nonce),
+                              data: contract.methods.joinRoom(roomName).encodeABI(),
+                            };
 
-    //     // Send the signed transaction
-    //     signedTx.then(({ rawTransaction }) => {
-    //         web3.eth.sendSignedTransaction(rawTransaction)
-    //             .on('transactionHash', function(hash){
-    //                 console.log('Transaction Hash:', hash);
-    //             })
-    //             .on('receipt', function(receipt){
-    //                 console.log('Receipt:', receipt);
-    //             })
-    //             .on('confirmation', function(confirmationNumber, receipt){
-    //                 console.log('Confirmation Number:', confirmationNumber);
-    //                 console.log('Receipt:', receipt);
-    //             })
-    //             .on('error', function(error){
-    //                 console.error('Error:', error);
-    //             });
-    //     });
-    // })
-    // .catch(error => {
-    //     console.error('Error fetching nonce:', error);
-    // });
-    //                         // const rawTransaction = {
-                            //   from: existingWallet.address,
-                            //   value: web3.utils.toWei(`${rooms[0].player1_amount}`, 'ether'),
-                            //   gasPrice: web3.utils.toWei("1", "gwei"),
-                            //   gas: 210000,
-                            //   data: contract.methods.createRoom(roomName).encodeABI(),
-                            //   nonce: await web3.eth.getTransactionCount(existingWallet.address),
-                            // };
 
-                            // const signedTransaction = await web3.eth.accounts.signTransaction(
-                            //   rawTransaction,
-                            //   existingWallet.privateKey
-                            // );
+                            const signedTx = await web3.eth.accounts.signTransaction(txObject, existingWallet.privateKey);
+                            const sentTx = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
 
-                            // const receipt = await web3.eth.sendSignedTransaction(
-                            //   signedTransaction.rawTransaction
-                            // );
-                            // console.log(receipt);
+                            ctx.reply(`Transaction sent: ${sentTx.transactionHash}`);
                             var query = `update room_summary set player2_id= ${ctx.message.chat.id}, user_count= 2, player2_amount= ${rooms[0].player1_amount} where room_id = ${rooms[0].room_id}`;
                             await sqlConnection.query(query, async function (error, data) {
                               if (error)
@@ -610,7 +565,7 @@ function enableGracefulStop(bot) {
 
 async function generateRoomCode() {
   try {
-    const characters = 'ABCDEFGH0123456789';
+    const characters = 'abcdefghijklmnopqrstuvwxyz';
     let roomCode = '';
     for (let i = 0; i < 8; i++) {
       roomCode += characters.charAt(Math.floor(Math.random() * characters.length));
@@ -759,9 +714,18 @@ async function handleWin(player1_selection, player2_selection, callbackQuery, ro
         }
       }
     }
-    // console.log(contract.methods.getRoomInfo(roomId).call());
-   
-    await declareWinner(winner, room_summary.player1_id, room_summary.player2_id, callbackQuery, player1_selection, player2_selection, roomId);
+    var query1 = `select * from room_details where room_id = ${roomId}`;
+    let roomName
+    await sqlConnection.query(query1, async function (error, data) {
+      if (error)
+        throw error;
+      else {
+        console.log("roomname", data[0]);
+        roomName = data[0].room_name;
+        await declareWinner(winner, room_summary.player1_id, room_summary.player2_id, callbackQuery, player1_selection, player2_selection, roomId, roomName);
+      }
+    });
+
     const query = `update room_summary set player1_selection= "${player1_selection}", player2_selection= "${player2_selection}" where room_id = ${roomId}`;
     await sqlConnection.query(query, async function (error, data) {
       if (error)
@@ -783,7 +747,8 @@ async function handleExpiry(ctx, roomId) {
         if (error)
           throw error;
         else {
-          if(data[0].status) {
+          if (data[0].status) {
+            const roomName = data[0].room_name;
             var query1 = `select * from room_summary where room_id = ${roomId}`;
             sqlConnection.query(query1, async function (error, data) {
               if (error)
@@ -797,7 +762,7 @@ async function handleExpiry(ctx, roomId) {
                   }
                 }
               }
-              await declareWinner(winner, data[0].player1_id, data[0].player2_id, ctx, data[0].player1_selection, data[0].player2_selection, roomId);
+              await declareWinner(winner, data[0].player1_id, data[0].player2_id, ctx, data[0].player1_selection, data[0].player2_selection, roomId, roomName);
             });
           }
         }
@@ -808,12 +773,31 @@ async function handleExpiry(ctx, roomId) {
   }
 }
 
-async function declareWinner(winner, player1_id, player2_id, ctx, player1_selection = '', player2_selection = '', roomId) {
+async function declareWinner(winner, player1_id, player2_id, ctx, player1_selection = '', player2_selection = '', roomId, roomName) {
   try {
     let winnerquery = '';
     if (winner) {
-      
-      console.log("Call Winner here");
+      ctx.reply("please Wait...");
+      const userId = winner === 'player1' ? player1_id : player2_id;
+      const existingWallet = await getWalletDetails(userId);
+      const nonce = await web3.eth.getTransactionCount(existingWallet.address);
+      // const senderAddress = (await web3.eth.getAccounts())[0];
+
+
+      const txObject = {
+        to:contractAddress,
+        gas: web3.utils.toHex(3000000),
+        gasPrice: web3.utils.toWei("5", "gwei"),
+        value:'0',
+        data: contract.methods.declareWinner(roomName, existingWallet.address).encodeABI(),
+        nonce:nonce
+      };
+
+
+      const signedTx = await web3.eth.accounts.signTransaction(txObject, existingWallet.privateKey);
+      const sentTx = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+
+      ctx.reply(`Transaction sent: ${sentTx.transactionHash}`);
       if (winner == 'player1') {
         winnerquery = `update room_details set winner_user= ${player1_id}, status = 0 where room_id = ${roomId}`;
         ctx.telegram.sendMessage(player1_id, `You won the match\nYour selection: ${player1_selection}\nOpponent selection: ${player2_selection}`);
@@ -824,8 +808,27 @@ async function declareWinner(winner, player1_id, player2_id, ctx, player1_select
         ctx.telegram.sendMessage(player2_id, `You won the match\nYour selection: ${player2_selection}\nOpponent selection: ${player1_selection}`);
       }
     } else {
-      
-      console.log("Call draw here");
+      ctx.reply("please Wait...");
+      const existingWallet = await getWalletDetails(player1_id);
+      const nonce = await web3.eth.getTransactionCount(existingWallet.address);
+      // const senderAddress = (await web3.eth.getAccounts())[0];
+
+
+      const txObject = {
+        from:existingWallet.address,
+        to:contractAddress,
+        gas: web3.utils.toHex(3000000),
+        gasPrice: web3.utils.toWei("5", "gwei"),
+        value:'0',
+        data: contract.methods.handleDraw(roomName).encodeABI(),
+        nonce:nonce
+      };
+
+
+      const signedTx = await web3.eth.accounts.signTransaction(txObject, existingWallet.privateKey);
+      const sentTx = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+
+      ctx.reply(`Transaction sent: ${sentTx.transactionHash}`);
       winnerquery = `update room_details set status = 0 where room_id = ${roomId}`;
       ctx.telegram.sendMessage(player1_id, `Match drawn both selected ${player1_selection}`);
       ctx.telegram.sendMessage(player2_id, `Match drawn both selected ${player1_selection}`);
@@ -835,35 +838,6 @@ async function declareWinner(winner, player1_id, player2_id, ctx, player1_select
         throw error;
       else
         console.log("updated");
-    });
-
-    var getroomQuery = `select * from room_details where room_id = ${roomId}`;
-    await sqlConnection.query(getroomQuery, async function (error, data) {
-      if (error)
-        throw error;
-      else {
-        if (winner) {
-          // let winnerid = (winner === 'player1' ? player1_id : player2_id);
-          // const userId = winnerid;
-          // const existingWallet = await getWalletDetails(userId);
-          // const rawTransaction = {
-          //   gasPrice: web3.utils.toWei("1", "gwei"),
-          //   gas: 210000,
-          //   data: contract.methods.createRoom(data[0].room_name, winnerid).encodeABI(),
-          //   nonce: await web3.eth.getTransactionCount(existingWallet.address),
-          // };
-
-          // const signedTransaction = await web3.eth.accounts.signTransaction(
-          //   rawTransaction,
-          //   existingWallet.privateKey
-          // );
-
-          // const receipt = await web3.eth.sendSignedTransaction(
-          //   signedTransaction.rawTransaction
-          // );
-          // console.log(receipt);
-        }
-      }
     });
 
   } catch (err) {
@@ -920,6 +894,8 @@ async function initializeWeb3() {
   try {
     // Create a new Web3 instance
     const blastEndpoint = "https://eth-sepolia.g.alchemy.com/v2/hbT0R7l5bcMZmoOBbNdXuS_5ZagTyFBy";
+
+    // const blastEndpoint="https://ethereum-sepolia-rpc.publicnode.com";
 
     const newWeb3 = new Web3(
       new Web3.providers.HttpProvider(blastEndpoint)
