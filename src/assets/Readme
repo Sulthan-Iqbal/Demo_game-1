@@ -1,0 +1,16 @@
+🎮 Welcome to Rock-Paper-Scissors Bot! 🪨📄✂️
+
+Let's play a classic game of Rock-Paper-Scissors!
+
+🔹 **Game Rules:** 🔹
+- Rock crushes Scissors 🪨
+- Scissors cuts Paper ✂️
+- Paper covers Rock 📄
+
+To start the game:
+1. Type /start to begin.
+2. Choose your move with /play rock, /play paper, or /play scissors.
+3. The bot will randomly select its move.
+4. Win by choosing a move that beats the bot's move!
+
+Are you ready? Let's see who's the Rock-Paper-Scissors champion! 💪

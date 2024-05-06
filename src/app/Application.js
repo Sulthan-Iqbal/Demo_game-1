@@ -1,4 +1,4 @@
-import { launchBot } from "../telegram/R_P_S_bot.js";
+import { launchBot } from "../telegram/R_P_S_bo.js";
 import { launchApi, MESSAGE_PATH } from "../http/Api.js";
 
 /**
