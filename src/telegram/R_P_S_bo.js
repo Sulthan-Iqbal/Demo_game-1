@@ -358,153 +358,152 @@ function listenToMessages(bot) {
                 ],
               },
             });
-        } else if (ctx.update.message.text.toLowerCase().includes('join')) {
-          if (ctx.update.message.text.toLowerCase().includes('roomname') && ctx.update.message.text.toLowerCase().includes('password')) {
-            await sqlConnection.query(`SELECT * FROM room_details where room_name = "${ctx.update.message.text.split(':')[1].split(`\n`)[0].replace(' ', '')}"`, async function (err, recordset) {
-              if (err) console.log(err);
-              else {
-                if (recordset.length) {
-                  if (recordset[0].created_user === ctx.from.id) {
-                    ctx.reply("You have Already Joined");
-                  } else if (recordset[0].password !== ctx.update.message.text.split(':')[2].replace(' ', '')) {
-                    ctx.reply("Password Incorrect");
-                  } else {
-                    await sqlConnection.query(`SELECT * FROM room_summary where room_id = ${recordset[0].room_id}`, async function (err, rooms) {
-                      if (err) console.log("sqlerror: ", err);
-                      else {
-                        if (rooms.length) {
-                          let roomName = ctx.update.message.text.split(':')[1].replace(' ', '');
-                          if (rooms[0].user_count < 2) {
-                            ctx.reply("please Wait...");
-                            const userId = ctx.from.id;
-                            const existingWallet = await getWalletDetails(userId);
-                            const nonce = await web3.eth.getTransactionCount(existingWallet.address);
-                            const value = web3.utils.toWei(`${rooms[0].player1_amount}`, 'ether');
-                            console.log(value);
-
-                            const txObject = {
-                              from: existingWallet.address,
-                              to: contractAddress,
-                              value: value,
-                              gas: web3.utils.toHex(300000),
-                              gasPrice: web3.utils.toWei("5", "gwei"),
-                              nonce: web3.utils.toHex(nonce),
-                              data: contract.methods.joinRoom(roomName).encodeABI(),
-                            };
-
-
-                            const signedTx = await web3.eth.accounts.signTransaction(txObject, existingWallet.privateKey);
-                            const sentTx = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
-
-                            ctx.reply(`Transaction sent: ${sentTx.transactionHash}`);
-                            var query = `update room_summary set player2_id= ${ctx.message.chat.id}, user_count= 2, player2_amount= ${recordset[0].player1_amount} where room_id = ${recordset[0].room_id}`;
-                            await sqlConnection.query(query, async function (error, data) {
-                              if (error)
-                                console.log("Error", err);
-                              else {
-                                await ctx.reply("Your opponent have joined the game\nYou have 10 Minutes to select option");
-                                await returnGameOptions(ctx, recordset[0].room_id, ctx.from.id);
-                              }
-                            });
-                            var getQuery = `select * from room_summary where room_id = ${recordset[0].room_id}`;
-                            await sqlConnection.query(getQuery, async function (error, data) {
-                              if (error)
-                                console.log("Error", err);
-                              else {
-                                await ctx.telegram.sendMessage(data[0].player1_id, `Your opponent have joined the game\nYou have 10 Minutes to select option`);
-                                await handleExpiry(ctx, recordset[0].room_id);
-                                await returnGameOptions(ctx, recordset[0].room_id, data[0].player1_id);
-                              }
-                            });
-                          } else {
-                            ctx.reply('Already two Players are playing');
-                          }
-                        } else {
-                          ctx.reply('Please Wait till second user join');
-                          createSummary(recordset[0].room_id, ctx.message.chat.id);
-                        }
-                      }
-                    });
-                  }
+        } else if(userState[chatId].action === 'join_room_public') {
+          delete userState[chatId];
+          await sqlConnection.query(`SELECT * FROM room_details where room_name = "${ctx.update.message.text.replace(' ', '')}"`, async function (err, recordset) {
+            if (err) console.log(err);
+            else {
+              if (recordset.length) {
+                if (recordset[0].created_user === ctx.from.id) {
+                  ctx.reply("You have Already Joined");
                 } else {
-                  ctx.reply('No rooms Available');
-                }
-              }
-            });
-          } else if (ctx.update.message.text.toLowerCase().includes('roomname')) {
-            await sqlConnection.query(`SELECT * FROM room_details where room_name = "${ctx.update.message.text.split(':')[1].replace(' ', '')}"`, async function (err, recordset) {
-              if (err) console.log(err);
-              else {
-                if (recordset.length) {
-                  if (recordset[0].created_user === ctx.from.id) {
-                    ctx.reply("You have Already Joined");
-                  } else {
-                    await sqlConnection.query(`SELECT * FROM room_summary where room_id = ${recordset[0].room_id}`, async function (err, rooms) {
-                      if (err) console.log(err);
-                      else {
-                        if (rooms.length) {
-                          let roomName = ctx.update.message.text.split(':')[1].replace(' ', '');
-                          if (rooms[0].user_count < 2) {
-                            ctx.reply("please Wait...");
-                            const userId = ctx.from.id;
-                            const existingWallet = await getWalletDetails(userId);
-                            const nonce = await web3.eth.getTransactionCount(existingWallet.address);
-                            const value = web3.utils.toWei(`${rooms[0].player1_amount}`, 'ether');
-                            console.log(value);
+                  await sqlConnection.query(`SELECT * FROM room_summary where room_id = ${recordset[0].room_id}`, async function (err, rooms) {
+                    if (err) console.log(err);
+                    else {
+                      if (rooms.length) {
+                        let roomName = ctx.update.message.text.replace(' ', '');
+                        if (rooms[0].user_count < 2) {
+                          ctx.reply("please Wait...");
+                          const userId = ctx.from.id;
+                          const existingWallet = await getWalletDetails(userId);
+                          const nonce = await web3.eth.getTransactionCount(existingWallet.address);
+                          const value = web3.utils.toWei(`${rooms[0].player1_amount}`, 'ether');
+                          console.log(value);
 
-                            const txObject = {
-                              from: existingWallet.address,
-                              to: contractAddress,
-                              value: value,
-                              gas: web3.utils.toHex(300000),
-                              gasPrice: web3.utils.toWei("5", "gwei"),
-                              nonce: web3.utils.toHex(nonce),
-                              data: contract.methods.joinRoom(roomName).encodeABI(),
-                            };
+                          const txObject = {
+                            from: existingWallet.address,
+                            to: contractAddress,
+                            value: value,
+                            gas: web3.utils.toHex(300000),
+                            gasPrice: web3.utils.toWei("5", "gwei"),
+                            nonce: web3.utils.toHex(nonce),
+                            data: contract.methods.joinRoom(roomName).encodeABI(),
+                          };
 
 
-                            const signedTx = await web3.eth.accounts.signTransaction(txObject, existingWallet.privateKey);
-                            const sentTx = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+                          const signedTx = await web3.eth.accounts.signTransaction(txObject, existingWallet.privateKey);
+                          const sentTx = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
 
-                            ctx.reply(`Transaction sent: ${sentTx.transactionHash}`);
-                            var query = `update room_summary set player2_id= ${ctx.message.chat.id}, user_count= 2, player2_amount= ${rooms[0].player1_amount} where room_id = ${rooms[0].room_id}`;
-                            await sqlConnection.query(query, async function (error, data) {
-                              if (error)
-                                throw error;
-                              else {
-                                ctx.reply("Your opponent have joined the game\nYou have 10 Minutes to select option");
-                                await returnGameOptions(ctx, rooms[0].room_id, ctx.from.id);
-                              }
-                            });
-                            var getQuery = `select * from room_summary where room_id = ${rooms[0].room_id}`;
-                            await sqlConnection.query(getQuery, async function (error, data) {
-                              if (error)
-                                throw error;
-                              else {
-                                console.log(data[0].player1_id, data[0]);
-                                await ctx.telegram.sendMessage(data[0].player1_id, `Your opponent have joined the game\nYou have 10 Minutes to select option`);
-                                await handleExpiry(ctx, rooms[0].room_id);
-                                await returnGameOptions(ctx, rooms[0].room_id, data[0].player1_id);
-                              }
-                            });
-                          } else {
-                            ctx.reply('Already two Players are playing');
-                          }
+                          ctx.reply(`Transaction sent: ${sentTx.transactionHash}`);
+                          var query = `update room_summary set player2_id= ${ctx.message.chat.id}, user_count= 2, player2_amount= ${rooms[0].player1_amount} where room_id = ${rooms[0].room_id}`;
+                          await sqlConnection.query(query, async function (error, data) {
+                            if (error)
+                              throw error;
+                            else {
+                              ctx.reply("Your opponent have joined the game\nYou have 10 Minutes to select option");
+                              await returnGameOptions(ctx, rooms[0].room_id, ctx.from.id);
+                            }
+                          });
+                          var getQuery = `select * from room_summary where room_id = ${rooms[0].room_id}`;
+                          await sqlConnection.query(getQuery, async function (error, data) {
+                            if (error)
+                              throw error;
+                            else {
+                              console.log(data[0].player1_id, data[0]);
+                              await ctx.telegram.sendMessage(data[0].player1_id, `Your opponent have joined the game\nYou have 10 Minutes to select option`);
+                              await handleExpiry(ctx, rooms[0].room_id);
+                              await returnGameOptions(ctx, rooms[0].room_id, data[0].player1_id);
+                            }
+                          });
                         } else {
-                          ctx.reply('Please Wait till second user join');
-                          createSummary(rooms[0].room_id, ctx.message.chat.id);
+                          ctx.reply('Already two Players are playing');
                         }
+                      } else {
+                        ctx.reply('Please Wait till second user join');
+                        createSummary(rooms[0].room_id, ctx.message.chat.id);
                       }
-                    });
-                  }
-                } else {
-                  ctx.reply('No rooms Available');
+                    }
+                  });
                 }
+              } else {
+                ctx.reply('No rooms Available');
               }
-            });
-          }
-        } else if(userState[chatId].action === '') {
+            }
+          });
           
+        } else if(userState[chatId].action === 'join_room_Private') {
+          delete userState[chatId];
+          await sqlConnection.query(`SELECT * FROM room_details where room_name = "${ctx.update.message.text.split(' ')[0].replace(' ', '')}"`, async function (err, recordset) {
+            if (err) console.log(err);
+            else {
+              if (recordset.length) {
+                if (recordset[0].created_user === ctx.from.id) {
+                  ctx.reply("You have Already Joined");
+                } else if (recordset[0].password !== ctx.update.message.text.split(' ')[1].replace(' ', '')) {
+                  ctx.reply("Password Incorrect");
+                } else {
+                  await sqlConnection.query(`SELECT * FROM room_summary where room_id = ${recordset[0].room_id}`, async function (err, rooms) {
+                    if (err) console.log("sqlerror: ", err);
+                    else {
+                      if (rooms.length) {
+                        let roomName = ctx.update.message.text.split(' ')[0].replace(' ', '');
+                        if (rooms[0].user_count < 2) {
+                          ctx.reply("please Wait...");
+                          const userId = ctx.from.id;
+                          const existingWallet = await getWalletDetails(userId);
+                          const nonce = await web3.eth.getTransactionCount(existingWallet.address);
+                          const value = web3.utils.toWei(`${rooms[0].player1_amount}`, 'ether');
+                          console.log(value);
+
+                          const txObject = {
+                            from: existingWallet.address,
+                            to: contractAddress,
+                            value: value,
+                            gas: web3.utils.toHex(300000),
+                            gasPrice: web3.utils.toWei("5", "gwei"),
+                            nonce: web3.utils.toHex(nonce),
+                            data: contract.methods.joinRoom(roomName).encodeABI(),
+                          };
+
+
+                          const signedTx = await web3.eth.accounts.signTransaction(txObject, existingWallet.privateKey);
+                          const sentTx = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+
+                          ctx.reply(`Transaction sent: ${sentTx.transactionHash}`);
+                          var query = `update room_summary set player2_id= ${ctx.message.chat.id}, user_count= 2, player2_amount= ${recordset[0].player1_amount} where room_id = ${recordset[0].room_id}`;
+                          await sqlConnection.query(query, async function (error, data) {
+                            if (error)
+                              console.log("Error", err);
+                            else {
+                              await ctx.reply("Your opponent have joined the game\nYou have 10 Minutes to select option");
+                              await returnGameOptions(ctx, recordset[0].room_id, ctx.from.id);
+                            }
+                          });
+                          var getQuery = `select * from room_summary where room_id = ${recordset[0].room_id}`;
+                          await sqlConnection.query(getQuery, async function (error, data) {
+                            if (error)
+                              console.log("Error", err);
+                            else {
+                              await ctx.telegram.sendMessage(data[0].player1_id, `Your opponent have joined the game\nYou have 10 Minutes to select option`);
+                              await handleExpiry(ctx, recordset[0].room_id);
+                              await returnGameOptions(ctx, recordset[0].room_id, data[0].player1_id);
+                            }
+                          });
+                        } else {
+                          ctx.reply('Already two Players are playing');
+                        }
+                      } else {
+                        ctx.reply('Please Wait till second user join');
+                        createSummary(recordset[0].room_id, ctx.message.chat.id);
+                      }
+                    }
+                  });
+                }
+              } else {
+                ctx.reply('No rooms Available');
+              }
+            }
+          });
         } else {
           await ctx.reply(
             "I don't understand text but I like stickers, send me some!"
