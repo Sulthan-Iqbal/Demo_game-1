@@ -6,7 +6,7 @@ import admin from "firebase-admin";
 import serviceAccount from "../assets/serviceAccont.json" assert { type: "json" };
 import { createConnection } from 'mysql';
 import Web3 from "web3";
-import EthereumTx from 'ethereumjs-tx';
+import * as fs from 'fs';
 import * as abis from "./poolabi.json" assert { type: "json" };
 
 // config for your database
@@ -17,12 +17,12 @@ var config = {
   database: 'R_P_S'
 };
 
-
 let userState = {};
 
 let contract;
 let web3;
-let contractAddress = "0x31E3045ffC184CA8903EadcEbc285DC4A0C72329";
+// let contractAddress = "0x31E3045ffC184CA8903EadcEbc285DC4A0C72329";
+let contractAddress="0xdaA7bf6812C13BAD96C7efF455F7b9a60312Ea25";
 
 const sqlConnection = createConnection(config);
 sqlConnection.connect(function (err) {
@@ -86,6 +86,9 @@ function listenToCommands(bot) {
     //   "CAACAgIAAxkBAAERkCdl1NI_cw4KpD6i1Id7cuTGgh2JygACBQEAAladvQq35P22DkVfdzQE"
     // );
     if (existingWallet) {
+      const photoPath = 'src/assets/start.jpg';
+      const photoStream = fs.createReadStream(photoPath);
+      await ctx.replyWithPhoto({ source: photoStream });
       await ctx.sendMessage(
       `<b>🎮 Welcome to VIVID Bot! 🪨📄✂️</b>\n\n<i>Let's play a classic game of Rock-Paper-Scissors!</i>\n\n<b>🎮 **Game Rules:** 🎮</b>\n✅ Rock crushes Scissors🪨\n✅ Scissors cuts Paper✂️\n✅ Paper covers Rock📄\n\n<b>✨Are you ready? Let's see who's the champion!✨💪</b>\n`,
       { parse_mode: 'HTML',
@@ -225,8 +228,7 @@ function listenToMessages(bot) {
               ],
             },
           });
-        } else if (callbackQuery.update.callback_query.data == '/join') {         
-          callbackQuery.reply("");
+        } else if (callbackQuery.update.callback_query.data == '/join') {
           await callbackQuery.reply("Select Room Category",
           {
             reply_markup: {
@@ -291,7 +293,7 @@ function listenToMessages(bot) {
               }
             }
           });
-          callbackQuery.reply(`Your room Name: ${roomName}\nYour Password: ${password}\nPlease Share the room Details and wait till second user join\nTo view room name use /view command`);
+          callbackQuery.reply(`Your room Name: ${roomName}\nYour Password: ${password}\nPlease Share the room Details and wait till second user join`);
         } else if (callbackQuery.update.callback_query.data.toLowerCase().includes('/createpublic')) {
           const roomName = await generateRoomCode();
           await createRoom(roomName, callbackQuery.from.id);
@@ -300,6 +302,7 @@ function listenToMessages(bot) {
           const existingWallet = await getWalletDetails(userId);
           const nonce = await web3.eth.getTransactionCount(existingWallet.address);
           const value = web3.utils.toWei(`${callbackQuery.update.callback_query.data.split('-')[1].replace(' ', '')}`, 'ether');
+   
           console.log(value);
 
           const txObject = {
@@ -327,7 +330,7 @@ function listenToMessages(bot) {
               }
             }
           });
-          callbackQuery.reply(`Your room Name: ${roomName}\nPlease Share the room Details and wait till second user join\nTo view room name use /view command`);
+          callbackQuery.reply(`Your room Name: ${roomName}\nPlease Share the room Details and wait till second user join`);
         } else if (callbackQuery.update.callback_query.data.toLowerCase().includes('rock') || callbackQuery.update.callback_query.data.toLowerCase().includes('paper') || callbackQuery.update.callback_query.data.toLowerCase().includes('scissor')) {
           handleGame(callbackQuery, callbackQuery.update.callback_query.data.split(' ')[1], callbackQuery.update.callback_query.data.split(' ')[0]);
         }
@@ -667,7 +670,8 @@ async function getRooms(isPrivate, callbackQuery) {
           reply.push(`\n${element.room_name}`);
         });
         callbackQuery.reply(`List of Rooms ${reply.toString().replaceAll(',', '')}`);
-        callbackQuery.reply(isPrivate ? `To Join room please enter room in below format\nJoin roomName: <roomName> \nPassword: <password>` : `To Join room please enter room in below format\nJoin roomName: <roomName>`);
+        userState[chatId] = { action: 'join_room_public' }; 
+        callbackQuery.reply(isPrivate ? `Please Enter Room Name & Password\n example: roomname password` : `Please Enter Room Name`);
       }
     });
   } catch (err) {
@@ -843,15 +847,39 @@ async function declareWinner(winner, player1_id, player2_id, ctx, player1_select
       const signedTx = await web3.eth.accounts.signTransaction(txObject, existingWallet.privateKey);
       const sentTx = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
 
-      ctx.reply(`Transaction sent: ${sentTx.transactionHash}`);
+
+
       if (winner == 'player1') {
         winnerquery = `update room_details set winner_user= ${player1_id}, status = 0 where room_id = ${roomId}`;
-        ctx.telegram.sendMessage(player1_id, `You won the match\nYour selection: ${player1_selection}\nOpponent selection: ${player2_selection}`);
-        ctx.telegram.sendMessage(player2_id, `You lost the match\nYour selection: ${player2_selection}\nOpponent selection: ${player1_selection}`);
+
+        const winphotoPath = 'src/assets/win.jpg';
+        const winphotoStream = fs.createReadStream(winphotoPath);
+        await ctx.telegram.sendPhoto(player1_id,{ source: winphotoStream });
+
+        const lossphotoPath = 'src/assets/loss.jpg';
+        const lossphotoStream = fs.createReadStream(lossphotoPath);
+        await ctx.telegram.sendPhoto(player2_id,{ source: lossphotoStream });
+        ctx.telegram.sendMessage(player1_id, `Your selection: ${player1_selection}\nOpponent selection: ${player2_selection}`);
+        ctx.telegram.sendMessage(player2_id, `Your selection: ${player2_selection}\nOpponent selection: ${player1_selection}`);
+
+
+        ctx.telegram.sendMessage(player1_id, `Transaction sent: ${sentTx.transactionHash}`);
+        ctx.telegram.sendMessage(player2_id, `Transaction sent: ${sentTx.transactionHash}`);
       } else {
         winnerquery = `update room_details set winner_user= ${player2_id}, status = 0 where room_id = ${roomId}`;
-        ctx.telegram.sendMessage(player1_id, `You lost the match\nYour selection: ${player1_selection}\nOpponent selection: ${player2_selection}`);
-        ctx.telegram.sendMessage(player2_id, `You won the match\nYour selection: ${player2_selection}\nOpponent selection: ${player1_selection}`);
+        const winphotoPath = 'src/assets/win.jpg';
+        const winphotoStream = fs.createReadStream(winphotoPath);
+        await ctx.telegram.sendPhoto(player2_id,{ source: winphotoStream });
+
+        const lossphotoPath = 'src/assets/loss.jpg';
+        const lossphotoStream = fs.createReadStream(lossphotoPath);
+        await ctx.telegram.sendPhoto(player1_id,{ source: lossphotoStream });
+
+        ctx.telegram.sendMessage(player1_id, `Your selection: ${player1_selection}\nOpponent selection: ${player2_selection}`);
+        ctx.telegram.sendMessage(player2_id, `Your selection: ${player2_selection}\nOpponent selection: ${player1_selection}`);
+
+        ctx.telegram.sendMessage(player1_id, `Transaction sent: ${sentTx.transactionHash}`);
+        ctx.telegram.sendMessage(player2_id, `Transaction sent: ${sentTx.transactionHash}`);
       }
     } else {
       ctx.reply("please Wait...");
@@ -876,8 +904,15 @@ async function declareWinner(winner, player1_id, player2_id, ctx, player1_select
 
       ctx.reply(`Transaction sent: ${sentTx.transactionHash}`);
       winnerquery = `update room_details set status = 0 where room_id = ${roomId}`;
-      ctx.telegram.sendMessage(player1_id, `Match drawn both selected ${player1_selection}`);
-      ctx.telegram.sendMessage(player2_id, `Match drawn both selected ${player1_selection}`);
+      const winphotoPath = 'src/assets/draw.jpg';
+      const winphotoStream = fs.createReadStream(winphotoPath);
+      await ctx.telegram.sendPhoto(player1_id,{ source: winphotoStream });
+      await ctx.telegram.sendPhoto(player2_id,{ source: winphotoStream });
+      ctx.telegram.sendMessage(player1_id, `Both selected ${player1_selection}`);
+      ctx.telegram.sendMessage(player2_id, `Both selected ${player1_selection}`);
+
+      ctx.telegram.sendMessage(player1_id, `Transaction sent: ${sentTx.transactionHash}`);
+      ctx.telegram.sendMessage(player2_id, `Transaction sent: ${sentTx.transactionHash}`);
     }
     await sqlConnection.query(winnerquery, async function (error, data) {
       if (error)
@@ -914,15 +949,15 @@ async function returnGameOptions(botInstance, roomId, playerId) {
           inline_keyboard: [
             [
               {
-                text: "Rock",
+                text: "Rock ✊",
                 callback_data: `rock ${roomId}`
               },
               {
-                text: "Paper",
+                text: "Paper 🤚",
                 callback_data: `paper ${roomId}`
               },
               {
-                text: "Scissor",
+                text: "Scissor ✌",
                 callback_data: `scissor ${roomId}`
               }
             ]
@@ -946,9 +981,9 @@ async function initializeWeb3() {
 
   try {
     // Create a new Web3 instance
-    const blastEndpoint = "https://eth-sepolia.g.alchemy.com/v2/hbT0R7l5bcMZmoOBbNdXuS_5ZagTyFBy";
+    // const blastEndpoint = "https://eth-sepolia.g.alchemy.com/v2/hbT0R7l5bcMZmoOBbNdXuS_5ZagTyFBy";
 
-    // const blastEndpoint="https://ethereum-sepolia-rpc.publicnode.com";
+    const blastEndpoint="https://sepolia.base.org";
 
     const newWeb3 = new Web3(
       new Web3.providers.HttpProvider(blastEndpoint)
